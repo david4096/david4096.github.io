@@ -1,1 +1,151 @@
-<h1>hello</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Text with Three.js and Shader</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FontLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
+  <script>
+    // Scene, Camera, and Renderer setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Light setup
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    const pointLight = new THREE.PointLight(0xffffff, 0.8);
+    pointLight.position.set(50, 50, 50);
+    scene.add(pointLight);
+
+    // Custom shader for undulating effect
+    const vertexShader = `
+      uniform float time;
+      uniform float scrollIntensity;
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+
+      // Pseudo-random number generator
+      float random3(vec3 c) {
+        float j = 4096.0 * sin(dot(c, vec3(17.0, 59.4, 15.0)));
+        return fract(sin(j) * 43758.5453);
+      }
+
+      float noise(vec3 p) {
+        vec3 i = floor(p);
+        vec3 f = fract(p);
+        vec3 u = f * f * (3.0 - 2.0 * f);
+
+        return mix(mix(mix(dot(vec3(random3(i + vec3(0, 0, 0))), f - vec3(0, 0, 0)),
+                          dot(vec3(random3(i + vec3(1, 0, 0))), f - vec3(1, 0, 0)), u.x),
+                      mix(dot(vec3(random3(i + vec3(0, 1, 0))), f - vec3(0, 1, 0)),
+                          dot(vec3(random3(i + vec3(1, 1, 0))), f - vec3(1, 1, 0)), u.x), u.y),
+                  mix(mix(dot(vec3(random3(i + vec3(0, 0, 1))), f - vec3(0, 0, 1)),
+                          dot(vec3(random3(i + vec3(1, 0, 1))), f - vec3(1, 0, 1)), u.x),
+                      mix(dot(vec3(random3(i + vec3(0, 1, 1))), f - vec3(0, 1, 1)),
+                          dot(vec3(random3(i + vec3(1, 1, 1))), f - vec3(1, 1, 1)), u.x), u.y), u.z);
+      }
+
+      void main() {
+        vNormal = normal;
+        vPosition = position;
+
+        // Calculate noise based displacement, affected by scrollIntensity
+        float displacement = noise(position + time) * scrollIntensity;
+
+        // Apply displacement to vertex position
+        vec3 newPosition = position + normal * displacement;
+
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+      }
+    `;
+
+    const fragmentShader = `
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+
+      void main() {
+        // Basic shading
+        float intensity = dot(normalize(vNormal), vec3(0.0, 0.0, 1.0));
+        gl_FragColor = vec4(0.2, 0.8, 0.2, 1.0) * intensity;
+      }
+    `;
+
+    // Load font and create 3D text
+    const loader = new THREE.FontLoader();
+    loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
+      const textGeometry = new THREE.TextGeometry('david4096', {
+        font: font,
+        size: 5,
+        height: 1,
+        curveSegments: 12,
+        bevelEnabled: true,
+        bevelThickness: 0.1,
+        bevelSize: 0.2,
+        bevelOffset: 0,
+        bevelSegments: 5
+      });
+
+      // Shader material with uniforms for time and scroll intensity
+      const textMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          time: { value: 0.0 },
+          scrollIntensity: { value: 0.5 } // Initial scroll intensity
+        },
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader
+      });
+
+      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+      scene.add(textMesh);
+
+      // Center the text
+      textGeometry.computeBoundingBox();
+      const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+      textMesh.position.set(centerOffset, 0, 0);
+
+      // Set camera position
+      camera.position.z = 20;
+
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // Update time uniform
+        textMaterial.uniforms.time.value += 0.01;
+
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      // Handle wheel event
+      window.addEventListener('wheel', (event) => {
+        // Increase or decrease intensity based on wheel delta
+        textMaterial.uniforms.scrollIntensity.value += event.deltaY * 0.01;
+        textMaterial.uniforms.scrollIntensity.value = Math.max(0.5, textMaterial.uniforms.scrollIntensity.value);
+      });
+    });
+
+    // Resize the canvas when the window is resized
+    window.addEventListener('resize', () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    });
+  </script>
+</body>
+</html>
+

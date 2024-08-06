@@ -96,7 +96,7 @@
 
       void main() {
         float intensity = dot(normalize(vNormal), vec3(0.0, 0.0, 1.0));
-        gl_FragColor = vec4(scrollIntensity * rand(vec2(10, 20)) * 0.03 + cos(time), cos(scrollIntensity) * 0.01, scrollIntensity * 0.01, 1) * sin(intensity) * 0.85;
+        gl_FragColor = vec4(scrollIntensity * rand(vec2(10, 20)) * 0.03 + cos(time) + 2.0, scrollIntensity * 0.01 +  + sin(time * 2.0), scrollIntensity * 0.01 + cos(time + 1.0), 1) * intensity;
       }
     `;
 
@@ -223,7 +223,10 @@
         requestAnimationFrame(animate);
 
         textMaterial.uniforms.time.value += 0.001;
+
         animateObjects();
+        githubMesh.geometry.computeBoundingSphere();
+        linkedinMesh.geometry.computeBoundingSphere();
 
         renderer.render(scene, camera);
       }
@@ -231,7 +234,7 @@
 
       window.addEventListener('wheel', (event) => {
         textMaterial.uniforms.scrollIntensity.value += event.deltaY * 0.01;
-        textMaterial.uniforms.scrollIntensity.value = Math.max(0.5, textMaterial.uniforms.scrollIntensity.value);
+        //textMaterial.uniforms.scrollIntensity.value = Math.max(0.5, textMaterial.uniforms.scrollIntensity.value);
       });
 
       const raycaster = new THREE.Raycaster();
@@ -252,11 +255,25 @@
       window.addEventListener('click', onMouseClick);
 
       window.addEventListener('mousemove', (event) => {
+          const mouse = new THREE.Vector2();
+                  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
         mouseLight.position.set(
           (event.clientX / window.innerWidth) * 2 - 1,
           -(event.clientY / window.innerHeight) * 2 + 1,
           camera.position.z - 50
         );
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects([githubMesh, linkedinMesh]);
+
+        if (intersects.length > 0) {
+            console.log(intersects);
+          intersects[0].object.position.z = 5;
+        } else {
+            githubMesh.position.z = 0;
+            linkedinMesh.position.z = 0;
+        }
 
         //helper.update();
       });

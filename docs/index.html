@@ -251,8 +251,23 @@
           window.open(intersects[0].object.userData.url, '_blank');
         }
       }
+      
+      function onTouch(event) {
+        const touch = new THREE.Vector2();
+        touch.x = (event.changedTouches[0].pageX / window.innerWidth) * 2 - 1;
+        touch.y = -(event.changedTouches[0].pageY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(touch, camera);
+        const intersects = raycaster.intersectObjects([githubMesh, linkedinMesh]);
+
+        if (intersects.length > 0) {
+          window.open(intersects[0].object.userData.url, '_blank');
+        }
+      }
 
       window.addEventListener('click', onMouseClick);
+      
+      window.addEventListener('touchend', onTouch);
 
       window.addEventListener('mousemove', (event) => {
           const mouse = new THREE.Vector2();
